@@ -1,0 +1,20 @@
+[project]
+name = "jepa"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "eljandoubi", email = "abdelkarim.eljandoubi@outlook.fr" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "torch>=2.14.1",
+    "torchvision>=0.29.1",
+]
+
+[project.scripts]
+jepa = "jepa:main"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
