@@ -96,12 +96,13 @@ class JEPAMaskSampler:
                 for i in range(N):
                     mask *= acceptable_regions[i]
 
-            mask_ids = torch.nonzero(mask.float(), as_tuple=False).squeeze(1)
+            mask_ids = torch.nonzero(mask.flatten()).squeeze(1)
             valid_mask = len(mask_ids) > self.min_keep
 
             if not valid_mask:
                 timeout -= 1
                 if timeout == 0:
+                    tries += 1
                     timeout = og_timeout
 
         mask_complement = torch.ones((self.height, self.width), dtype=torch.int32)
@@ -126,11 +127,11 @@ class JEPAMaskSampler:
         min_keep_enc = self.num_patches
 
         for _ in range(batch_size):
-            masks_P, mask_Cs = [], []
+            masks_P, masks_Cs = [], []
             for _ in range(self.npred):
                 mask_ids, mask_complement = self._sample_block_mask(p_size)
                 masks_P.append(mask_ids)
-                mask_Cs.append(mask_complement)
+                masks_Cs.append(mask_complement)
                 min_keep_pred = min(min_keep_pred, len(mask_ids))
 
 
@@ -138,7 +139,7 @@ class JEPAMaskSampler:
 
             masks_E = []
             for _ in range(self.nenc):
-                acceptable_regions = mask_Cs if not self.allow_overlap else None
+                acceptable_regions = masks_Cs if not self.allow_overlap else None
                 mask_ids, _ = self._sample_block_mask(e_size, acceptable_regions)
                 masks_E.append(mask_ids)
                 min_keep_enc = min(min_keep_enc, len(mask_ids))
@@ -185,9 +186,9 @@ if __name__ == "__main__":
  
         colors = ["#1a1a2e", "#4a9eff", "#ff4d6d"]
         labels = ["Unused", "Context", "Target"]
-        cmap   = plt.matplotlib.colors.ListedColormap(colors)
+        cmap   = plt.matplotlib.colors.ListedColormap(colors)  # type: ignore
         bounds = [-0.5, 0.5, 1.5, 2.5]
-        norm   = plt.matplotlib.colors.BoundaryNorm(bounds, cmap.N)
+        norm   = plt.matplotlib.colors.BoundaryNorm(bounds, cmap.N) # type: ignore
  
         _, ax = plt.subplots(figsize=(7, 7), facecolor="#0d0d1a")
         ax.set_facecolor("#0d0d1a")
@@ -262,7 +263,7 @@ if __name__ == "__main__":
     ctx, tgt = sampler.sample_masks(batch_size=4)
 
  
-    ctx_flat = ctx.flatten(1) #[:, 0, :] 
+    ctx_flat = ctx.flatten(1)
     tgt_flat = tgt.flatten(1) 
 
     print("Context shape:", ctx_flat.shape, "Target shape:", tgt_flat.shape)
