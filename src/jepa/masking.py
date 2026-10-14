@@ -52,8 +52,44 @@ class JEPAMaskSampler:
         h = round(math.sqrt(max_keep * aspect_ratio))
         w = round(math.sqrt(max_keep / aspect_ratio))
  
-        # Clamp to grid
-        while h >= self.height: h -= 1
-        while w >= self.width:  w -= 1
+        # Clamp to grid 
+        h = min(h, self.height - 1)
+        w = min(w, self.width - 1)
 
         return h, w 
+
+    def _sample_block_mask(self, b_size: tuple[int, int], acceptable_regions: list[torch.Tensor]|None=None):
+        """sample a rectangular block of shape (h,w)"""
+        h, w = b_size
+        tries = 0
+        timeout = og_timeout = 25
+        valid_mask = False
+        while not valid_mask:
+            # sample a random top left corner
+            top = torch.randint(0, self.height - h, (1,)).item()
+            left = torch.randint(0, self.width - w, (1,)).item()
+
+            # create a mask of zeros
+            mask = torch.zeros((self.height, self.width), dtype=torch.int32)
+
+            # set the block to True
+            mask[top:top+h, left:left+w] = 1
+
+            if acceptable_regions is not None:
+                # check if the block overlaps with any acceptable region
+                N = max(len(acceptable_regions)-tries, 0)  # check at most 10 regions
+                for i in range(N):
+                    mask *= acceptable_regions[i]
+
+            mask_ids = torch.nonzero(mask.float(), as_tuple=False).squeeze(1)
+            valid_mask = len(mask_ids) > self.min_keep
+
+            if not valid_mask:
+                timeout -= 1
+                if timeout == 0:
+                    timeout = og_timeout
+
+        mask_complement = torch.ones((self.height, self.width), dtype=torch.int32)
+        mask_complement[top:top+h, left:left+w] = 0
+
+        return mask_ids, mask_complement
